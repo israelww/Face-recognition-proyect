@@ -1,54 +1,126 @@
 import os
 import cv2
-
-# 1. Configuración inicial
-nombre_persona = 'MarioRios'
-path_datos = 'dataset' # Carpeta donde se guardarán las fotos
-path_completo = os.path.join(path_datos, nombre_persona)
-
+import time
+import uuid
+ 
+# ─── 1. Configuración ──────────────────────────────────────────────────────────
+nombre_persona = 'Israel'
+path_datos     = r'C:\Users\MSI\Documents\GitHub\Face-recognition-proyect\Face-Recognition Proyect\Dataset\Alumnos'
+path_completo  = os.path.join(path_datos, nombre_persona)
+META           = 120      # Número de fotos objetivo
+TAMANO         = (160, 160)  # FIX: 160x160 en lugar de 60x60
+INTERVALO_MIN  = 0.4      # FIX: mínimo 0.4s entre capturas (evita frames duplicados)
+ 
 if not os.path.exists(path_completo):
-    print(f'Carpeta creada: {path_completo}')
     os.makedirs(path_completo)
-
-# 2. Cargar el clasificador de rostros (Haar Cascade)
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-
-# 3. Iniciar la captura de video
-cap = cv2.VideoCapture(0)
+    print(f'Carpeta creada: {path_completo}')
+ 
+# ─── 2. Detector ────────────────────────────────────────────────────────────────
+# Intentar MTCNN primero, Haar como fallback
+try:
+    from mtcnn import MTCNN
+    detector_mtcnn = MTCNN()
+    usar_mtcnn = True
+    print("Detector: MTCNN ✓")
+except ImportError:
+    face_cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+    )
+    usar_mtcnn = False
+    print("Detector: Haar Cascades (instala mtcnn para mejor calidad)")
+ 
+# ─── 3. Protocolo de variaciones ────────────────────────────────────────────────
+# FIX: guía al usuario para capturar diversidad real
+VARIACIONES = [
+    "Frente, expresion neutra",
+    "Frente, sonriendo",
+    "Cabeza inclinada derecha",
+    "Cabeza inclinada izquierda",
+    "Con lentes (si aplica)",
+    "Con mascarilla",
+    "Iluminacion lateral",
+]
+ 
+def variacion_actual(count):
+    idx = min(count // (META // len(VARIACIONES)), len(VARIACIONES) - 1)
+    return VARIACIONES[idx]
+ 
+# ─── 4. Captura ─────────────────────────────────────────────────────────────────
+cap   = cv2.VideoCapture(0)
 count = 0
-
-print("Capturando rostro... Presiona 'q' para salir antes de tiempo.")
-
+ultimo_guardado = 0  # timestamp del último guardado
+ 
+print(f"\nCapturando {META} fotos para: {nombre_persona}")
+print("Presiona 'q' para salir antes de tiempo.\n")
+ 
 while True:
     ret, frame = cap.read()
-    if not ret: break
-    
-    # Convertir a escala de grises para que el algoritmo trabaje mejor
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    
-    # Detectar rostros
-    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
-
-    for (x, y, w, h) in faces:
-        # Dibujar un rectángulo en el rostro (opcional, para visualización)
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        
-        # Recortar el rostro y redimensionarlo (ej. 60x60 píxeles)
-        rostro_recortado = frame[y:y + h, x:x + w]
-        rostro_recortado = cv2.resize(rostro_recortado, (60, 60), interpolation=cv2.INTER_CUBIC)
-        
-        # Guardar la imagen
-        cv2.imwrite(f'{path_completo}/rostro_{count}.jpg', rostro_recortado)
-        count += 1
-
-    # Mostrar el video en vivo
-    cv2.imshow('Creando Dataset', frame)
-
-    # Detener si llegamos a 100 fotos o si presionamos 'q'
-    k = cv2.waitKey(1)
-    if k == ord('q') or count >= 100:
+    if not ret:
         break
-
-print(f"Dataset finalizado. Se guardaron {count} imágenes en {path_completo}")
+ 
+    frame = cv2.flip(frame, 1)   # Espejo: más natural para el usuario
+    ahora = time.time()
+ 
+    # ─── Detección ──────────────────────────────────────────────────────────
+    rostro_recortado = None
+ 
+    if usar_mtcnn:
+        frame_rgb  = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        resultados = detector_mtcnn.detect_faces(frame_rgb)
+        if resultados:
+            det = max(resultados, key=lambda r: r['confidence'])
+            if det['confidence'] > 0.88:
+                x, y, w, h = det['box']
+                x, y = max(0, x), max(0, y)
+                # FIX: margen del 20% alrededor del bbox
+                margen = int(0.20 * max(w, h))
+                x1 = max(0, x - margen)
+                y1 = max(0, y - margen)
+                x2 = min(frame.shape[1], x + w + margen)
+                y2 = min(frame.shape[0], y + h + margen)
+                rostro_recortado = frame[y1:y2, x1:x2]
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 100), 2)
+    else:
+        gray  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, 1.3, 5, minSize=(80, 80))
+        if len(faces) > 0:
+            x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+            # FIX: margen del 20%
+            margen = int(0.20 * max(w, h))
+            x1 = max(0, x - margen)
+            y1 = max(0, y - margen)
+            x2 = min(frame.shape[1], x + w + margen)
+            y2 = min(frame.shape[0], y + h + margen)
+            rostro_recortado = frame[y1:y2, x1:x2]
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 100), 2)
+ 
+    # ─── Guardar (con intervalo mínimo) ─────────────────────────────────────
+    if rostro_recortado is not None and (ahora - ultimo_guardado) >= INTERVALO_MIN:
+        # FIX: resize a 160x160
+        rostro_160 = cv2.resize(rostro_recortado, TAMANO, interpolation=cv2.INTER_LANCZOS4)
+        nombre_archivo = f'rostro_{count:04d}_{uuid.uuid4().hex[:5]}.jpg'
+        cv2.imwrite(os.path.join(path_completo, nombre_archivo), rostro_160)
+        count += 1
+        ultimo_guardado = ahora
+ 
+    # ─── HUD (pantalla) ──────────────────────────────────────────────────────
+    cv2.putText(frame, f'{nombre_persona}  {count}/{META}',
+                (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+    cv2.putText(frame, variacion_actual(count),
+                (10, frame.shape[0] - 15),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.58, (180, 230, 255), 1)
+ 
+    # Barra de progreso
+    prog = int((count / META) * frame.shape[1])
+    cv2.rectangle(frame, (0, frame.shape[0] - 7), (prog, frame.shape[0]),
+                  (0, 210, 80), -1)
+ 
+    cv2.imshow('Creando Dataset', frame)
+ 
+    k = cv2.waitKey(1)
+    if k == ord('q') or count >= META:
+        break
+ 
+print(f"\nDataset finalizado. {count} imágenes guardadas en '{path_completo}'")
 cap.release()
 cv2.destroyAllWindows()
