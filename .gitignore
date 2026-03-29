@@ -1,3 +1,6 @@
 venv/
 __pycache__/
 *.pyc
+Face-Recognition Proyect/Dataset_aumentado/
+Face-Recognition Proyect/Dataset_procesado/
+Face-Recognition Proyect/logs/

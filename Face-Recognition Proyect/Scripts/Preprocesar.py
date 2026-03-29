@@ -34,6 +34,15 @@ OUT_DIR   = Path(__file__).parent.parent / "Dataset_procesado"
 LOG_DIR   = Path(__file__).parent.parent / "logs"
 TAMANO    = (160, 160)
 EXTS      = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+
+
+def json_safe(obj):
+    """Convierte tipos de NumPy a tipos nativos para poder serializar a JSON."""
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
  
  
 # ─── Detección y alineación con MTCNN ───────────────────────────────────────────
@@ -197,7 +206,7 @@ def procesar_dataset(umbral: float = 0.90):
     # Guardar log
     log_path = LOG_DIR / "preprocesamiento.json"
     with open(log_path, "w", encoding="utf-8") as f:
-        json.dump(log_global, f, indent=2, ensure_ascii=False)
+        json.dump(log_global, f, indent=2, ensure_ascii=False, default=json_safe)
  
     print(f"\n{'='*55}")
     print(f"  PREPROCESAMIENTO COMPLETO")
