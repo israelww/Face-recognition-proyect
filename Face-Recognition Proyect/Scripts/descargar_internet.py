@@ -14,9 +14,10 @@ logging.getLogger("icrawler").setLevel(logging.ERROR)
 # ────────────────────────────────────────────────────────────────────
 #  CONFIGURACIÓN
 # ────────────────────────────────────────────────────────────────────
-CELEBRITY_NAME = "Justin Bieber"   # 👈 Cambia aquí
+CELEBRITY_NAME = "Naruto"   # 👈 Cambia aquí
 N_IMAGES       = 50                   # Total de imágenes deseadas
-OUTPUT_PATH    = "./dataset"            # Carpeta raíz
+PROJECT_DIR    = Path(__file__).resolve().parents[1]
+OUTPUT_PATH    = PROJECT_DIR / "Dataset" / "Anime"   # Carpeta raíz            # Carpeta raíz
 ENABLE_GOOGLE  = False                  # Google desactivado temporalmente por cambios/bloqueos en su HTML
 # ────────────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ if ENABLE_GOOGLE:
         1,
         {
             "crawler_cls": GoogleImageCrawler,
-            "keyword":     f"{CELEBRITY_NAME} portrait headshot",
+            "keyword":     f"{CELEBRITY_NAME} face portrait",
             "max_num":     50,
             "filters":     {"type": "face"},   # Google tiene filtro específico de cara
         },
