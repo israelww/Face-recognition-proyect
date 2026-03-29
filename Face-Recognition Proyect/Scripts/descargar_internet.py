@@ -16,7 +16,8 @@ logging.getLogger("icrawler").setLevel(logging.ERROR)
 # ────────────────────────────────────────────────────────────────────
 CELEBRITY_NAME = "Justin Bieber"   # 👈 Cambia aquí
 N_IMAGES       = 50                   # Total de imágenes deseadas
-OUTPUT_PATH    = "./dataset"            # Carpeta raíz
+PROJECT_DIR    = Path(__file__).resolve().parents[1]
+OUTPUT_PATH    = PROJECT_DIR / "Dataset" / "Cantantes"   # Carpeta raíz
 ENABLE_GOOGLE  = False                  # Google desactivado temporalmente por cambios/bloqueos en su HTML
 # ────────────────────────────────────────────────────────────────────
 
@@ -85,7 +86,7 @@ def remove_duplicates(folder: Path) -> int:
     return removed
 
 
-def download_celebrity(name: str, n_images: int, base_path: str):
+def download_celebrity(name: str, n_images: int, base_path: Path | str):
     safe_name = name.replace(" ", "_")
     save_dir  = Path(base_path) / safe_name
     save_dir.mkdir(parents=True, exist_ok=True)
