@@ -4,8 +4,8 @@ import time
 import uuid
 ## DBD
 # ─── 1. Configuración ──────────────────────────────────────────────────────────
-nombre_persona = 'Israel'
-path_datos     = r'C:\Users\MSI\Documents\GitHub\Face-recognition-proyect\Face-Recognition Proyect\Dataset\Alumnos'
+nombre_persona = 'Kevin'
+path_datos     = r'C:\Users\Kexis\OneDrive\Desktop\Dataset\Face-recognition-proyect\Face-Recognition Proyect\Dataset\Alumnos'
 path_completo  = os.path.join(path_datos, nombre_persona)
 META           = 120      # Número de fotos objetivo
 TAMANO         = (160, 160)  # FIX: 160x160 en lugar de 60x60
