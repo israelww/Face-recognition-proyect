@@ -2,7 +2,7 @@ import os
 import cv2
 import time
 import uuid
- 
+## DBD
 # ─── 1. Configuración ──────────────────────────────────────────────────────────
 nombre_persona = 'Israel'
 path_datos     = r'C:\Users\MSI\Documents\GitHub\Face-recognition-proyect\Face-Recognition Proyect\Dataset\Alumnos'
