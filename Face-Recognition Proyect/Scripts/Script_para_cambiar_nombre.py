@@ -1,29 +1,20 @@
-# ------------------------------------------------------------
-# INSTRUCCIONES DE USO
-#
-# 1) Abre una terminal en la carpeta donde esta este archivo.
-# 2) Ejecuta:
-#    python script.py "RUTA_DE_LA_CARPETA" NOMBRE_BASE
-#
-# Ejemplo:
-#    python script.py "C:\Users\joeyk\OneDrive\Desktop\CNN\DataSet\Famosos\MeganFox" meganfox
-#
-# Resultado esperado:
-#    meganfox_1.jpg, meganfox_2.png, meganfox_3.jpg, etc.
-#    (conserva la extension original de cada imagen)
-#
-# Opciones utiles:
-#    --simular      Muestra los cambios sin renombrar realmente.
-#    --inicio 10    Empieza la numeracion desde 10.
-#
-# Ejemplos con opciones:
-#    python script.py "C:\MiCarpeta" imagen --simular
-#    python script.py "C:\MiCarpeta" imagen --inicio 10
-# ------------------------------------------------------------
+﻿from __future__ import annotations
 
-from __future__ import annotations
+"""
+Script_para_cambiar_nombre.py
+=============================
+Modo 1 (recomendado): ejecutar este archivo sin argumentos y configurar:
+  - CARPETA_OBJETIVO
+  - NOMBRE_BASE_OBJETIVO
+  - INICIO_OBJETIVO
+  - SIMULAR_CAMBIOS
+
+Modo 2 (opcional): ejecutar por terminal con argumentos:
+  python ".\\Face-Recognition Proyect\\Scripts\\Script_para_cambiar_nombre.py" "RUTA_DE_LA_CARPETA" NOMBRE_BASE [--inicio N] [--simular]
+"""
 
 import argparse
+import sys
 from pathlib import Path
 
 
@@ -40,15 +31,30 @@ EXTENSIONES_IMAGEN = {
 }
 
 
+# ------------------------------------------------------------
+# CONFIGURACION RAPIDA (edita estas variables)
+# ------------------------------------------------------------
+CARPETA_OBJETIVO = Path(
+    r"C:\Users\joeyk\OneDrive\Desktop\CNN\Face-recognition-proyect\Face-Recognition Proyect\Dataset\Superheroes\Scarlett Johansson"
+)
+NOMBRE_BASE_OBJETIVO = "ScarlettJohansson"
+INICIO_OBJETIVO = 1
+SIMULAR_CAMBIOS = False  # True = solo mostrar, False = renombrar
+
+
 def obtener_imagenes(carpeta: Path) -> list[Path]:
-    archivos = [p for p in carpeta.iterdir() if p.is_file() and p.suffix.lower() in EXTENSIONES_IMAGEN]
+    archivos = [
+        p
+        for p in carpeta.iterdir()
+        if p.is_file() and p.suffix.lower() in EXTENSIONES_IMAGEN
+    ]
     return sorted(archivos, key=lambda p: p.name.lower())
 
 
 def renombrar_imagenes(carpeta: Path, nombre_base: str, inicio: int, simular: bool) -> None:
     imagenes = obtener_imagenes(carpeta)
     if not imagenes:
-        print("No se encontraron imágenes para renombrar.")
+        print("No se encontraron imagenes para renombrar.")
         return
 
     # Paso 1: mover a nombres temporales para evitar conflictos.
@@ -75,17 +81,36 @@ def renombrar_imagenes(carpeta: Path, nombre_base: str, inicio: int, simular: bo
         print(f"\nListo. Se renombraron {len(temporales)} imagen(es).")
 
 
-def main() -> None:
+def validar_entrada(carpeta: Path, inicio: int, nombre_base: str) -> None:
+    if not carpeta.exists() or not carpeta.is_dir():
+        raise SystemExit(f"La carpeta no existe o no es valida: {carpeta}")
+    if inicio < 0:
+        raise SystemExit("El valor de inicio no puede ser negativo.")
+    if not nombre_base.strip():
+        raise SystemExit("El nombre base no puede estar vacio.")
+
+
+def ejecutar_desde_variables() -> None:
+    carpeta = CARPETA_OBJETIVO.resolve()
+    nombre_base = NOMBRE_BASE_OBJETIVO.strip()
+    inicio = INICIO_OBJETIVO
+    simular = SIMULAR_CAMBIOS
+
+    validar_entrada(carpeta, inicio, nombre_base)
+    renombrar_imagenes(carpeta, nombre_base, inicio, simular)
+
+
+def ejecutar_desde_argumentos() -> None:
     parser = argparse.ArgumentParser(
-        description="Renombra imágenes de una carpeta con formato: nombre_base_1.png, nombre_base_2.jpg, etc."
+        description="Renombra imagenes de una carpeta con formato: nombre_base_1.png, nombre_base_2.jpg, etc."
     )
-    parser.add_argument("carpeta", type=Path, help="Ruta de la carpeta que contiene las imágenes.")
+    parser.add_argument("carpeta", type=Path, help="Ruta de la carpeta que contiene las imagenes.")
     parser.add_argument("nombre_base", help="Nombre base deseado. Ejemplo: imagen")
     parser.add_argument(
         "--inicio",
         type=int,
         default=1,
-        help="Número inicial de la secuencia (por defecto: 1).",
+        help="Numero inicial de la secuencia (por defecto: 1).",
     )
     parser.add_argument(
         "--simular",
@@ -95,14 +120,15 @@ def main() -> None:
     args = parser.parse_args()
 
     carpeta = args.carpeta.resolve()
-    if not carpeta.exists() or not carpeta.is_dir():
-        raise SystemExit(f"La carpeta no existe o no es válida: {carpeta}")
-
-    if args.inicio < 0:
-        raise SystemExit("El valor de --inicio no puede ser negativo.")
-
-    renombrar_imagenes(carpeta, args.nombre_base.strip(), args.inicio, args.simular)
+    nombre_base = args.nombre_base.strip()
+    validar_entrada(carpeta, args.inicio, nombre_base)
+    renombrar_imagenes(carpeta, nombre_base, args.inicio, args.simular)
 
 
 if __name__ == "__main__":
-    main()
+    # Si se pasan argumentos: modo terminal.
+    # Si no se pasan argumentos: modo variables de este archivo.
+    if len(sys.argv) > 1:
+        ejecutar_desde_argumentos()
+    else:
+        ejecutar_desde_variables()
