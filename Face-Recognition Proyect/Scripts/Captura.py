@@ -4,7 +4,7 @@ import time
 import uuid
 ## DBD
 # ─── 1. Configuración ──────────────────────────────────────────────────────────
-nombre_persona = 'Kevin'
+nombre_persona = 'Joey'
 path_datos     = r'.\Face-Recognition Proyect\Dataset\Alumnos'  # Cambia a tu ruta deseada
 path_completo  = os.path.join(path_datos, nombre_persona)
 META           = 120      # Número de fotos objetivo

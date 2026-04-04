@@ -35,9 +35,9 @@ EXTENSIONES_IMAGEN = {
 # CONFIGURACION RAPIDA (edita estas variables)
 # ------------------------------------------------------------
 CARPETA_OBJETIVO = Path(
-    r"C:\Users\joeyk\OneDrive\Desktop\CNN\Face-recognition-proyect\Face-Recognition Proyect\Dataset\Superheroes\Scarlett Johansson"
+    r"C:\Users\joeyk\OneDrive\Desktop\CNN\Face-recognition-proyect\Face-Recognition Proyect\Dataset\Villanos\Joker"
 )
-NOMBRE_BASE_OBJETIVO = "ScarlettJohansson"
+NOMBRE_BASE_OBJETIVO = "Lara_Croft"
 INICIO_OBJETIVO = 1
 SIMULAR_CAMBIOS = False  # True = solo mostrar, False = renombrar
 
