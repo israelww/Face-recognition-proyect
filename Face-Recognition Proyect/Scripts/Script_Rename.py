@@ -1,18 +1,5 @@
 ﻿from __future__ import annotations
 
-"""
-Script_para_cambiar_nombre.py
-=============================
-Modo 1 (recomendado): ejecutar este archivo sin argumentos y configurar:
-  - CARPETA_OBJETIVO
-  - NOMBRE_BASE_OBJETIVO
-  - INICIO_OBJETIVO
-  - SIMULAR_CAMBIOS
-
-Modo 2 (opcional): ejecutar por terminal con argumentos:
-  python ".\\Face-Recognition Proyect\\Scripts\\Script_para_cambiar_nombre.py" "RUTA_DE_LA_CARPETA" NOMBRE_BASE [--inicio N] [--simular]
-"""
-
 import argparse
 import sys
 from pathlib import Path
@@ -30,9 +17,8 @@ EXTENSIONES_IMAGEN = {
     ".heic",
 }
 
-
 # ------------------------------------------------------------
-# CONFIGURACION RAPIDA (edita estas variables)
+# CONFIGURACION
 # ------------------------------------------------------------
 CARPETA_OBJETIVO = Path(
     r"C:\Users\joeyk\OneDrive\Desktop\CNN\Face-recognition-proyect\Face-Recognition Proyect\Dataset\Villanos\Joker"

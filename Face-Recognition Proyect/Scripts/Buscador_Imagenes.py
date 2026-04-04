@@ -14,11 +14,11 @@ logging.getLogger("icrawler").setLevel(logging.ERROR)
 # ────────────────────────────────────────────────────────────────────
 #  CONFIGURACIÓN
 # ────────────────────────────────────────────────────────────────────
-CELEBRITY_NAME = "Charlie Kirk"   # 👈 Cambia aquí
-N_IMAGES       = 50                   # Total de imágenes deseadas
+CELEBRITY_NAME = "Charlie Kirk"                         # Cambia aquí
+N_IMAGES       = 50                                     # Total de imágenes deseadas
 PROJECT_DIR    = Path(__file__).resolve().parents[1]
-OUTPUT_PATH    = PROJECT_DIR / "Dataset" / "Villanos"   # Carpeta raíz            # Carpeta raíz
-ENABLE_GOOGLE  = False                  # Google desactivado temporalmente por cambios/bloqueos en su HTML
+OUTPUT_PATH    = PROJECT_DIR / "Dataset" / "Villanos"   # Carpeta raíz     
+ENABLE_GOOGLE  = False                                  
 # ────────────────────────────────────────────────────────────────────
 
 
