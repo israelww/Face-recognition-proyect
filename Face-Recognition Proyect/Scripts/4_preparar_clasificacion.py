@@ -1,105 +1,128 @@
 """
-preparar_clasificacion.py
-=========================
-Fase 4 — Preparación para Clasificación Multiclase
-Divide Dataset_aumentado/ en conjuntos train / val / test
-y genera los archivos de configuración necesarios para entrenar
-con PyTorch (DataLoader) o Keras (ImageDataGenerator).
- 
-Splits estándar:
-  - Train:      70%
-  - Validación: 15%
-  - Test:       15%
- 
-Genera:
-  - splits/train.csv, val.csv, test.csv
-  - splits/clases.json   ← mapeo índice → nombre de clase
-  - splits/estadisticas.json
- 
-Uso:
-    python scripts/preparar_clasificacion.py
-    python scripts/preparar_clasificacion.py --train 0.8 --val 0.1 --test 0.1
+4_preparar_clasificacion.py
+===========================
+Fase 4 - Preparacion de splits train/val/test para clasificacion multiclase.
+
+Estructura soportada (estricta):
+  Dataset_aumentado/Persona/*.jpg
 """
- 
+
+
 import cv2
 import json
 import random
 import argparse
 import csv
+import re
 from pathlib import Path
-from collections import Counter
- 
-BASE_DIR  = Path(__file__).parent.parent / "Dataset_aumentado"
-SPLIT_DIR = Path(__file__).parent.parent / "splits"
-EXTS      = {".jpg", ".jpeg", ".png"}
-SEED      = 42
- 
- 
-# ─── Recolectar todas las imágenes con sus etiquetas ────────────────────────────
- 
+from collections import Counter, defaultdict
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+BASE_DIR = PROJECT_ROOT / "Dataset_aumentado"
+SPLIT_DIR = PROJECT_ROOT / "splits"
+EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+SEED = 42
+GRUPO_DEFAULT = "Directo"
+
+
+def _tiene_imagenes_directas(carpeta: Path) -> bool:
+    return any(f.is_file() and f.suffix.lower() in EXTS for f in carpeta.iterdir())
+
+
+def _iterar_clases(base: Path):
+    """
+    Yields (clase_dir) para estructura plana por persona.
+    Si detecta estructura por grupos, lanza ValueError.
+    """
+    nivel1 = sorted([d for d in base.iterdir() if d.is_dir()])
+    if not nivel1:
+        return
+
+    es_plana = any(_tiene_imagenes_directas(d) for d in nivel1)
+    if not es_plana:
+        raise ValueError(
+            "Estructura no compatible: se detectaron grupos.\n"
+            "Usa solo Dataset_aumentado/<Persona>/<imagenes>."
+        )
+    for clase_dir in nivel1:
+        yield clase_dir
+
+
 def recolectar_muestras(base: Path):
     """
-    Recorre Dataset_aumentado/ y genera una lista de (ruta, clase, grupo).
-    La clase se define por el nombre de la carpeta (Alumno1, Famoso1, etc.)
+    Recolecta muestras con campos:
+      ruta, clase, grupo, base_id
     """
     muestras = []
-    clases   = set()
- 
-    grupos = sorted([d for d in base.iterdir() if d.is_dir()])
-    for grupo in grupos:
-        categorias = sorted([d for d in grupo.iterdir() if d.is_dir()])
-        for categoria in categorias:
-            nombre_clase = categoria.name
-            clases.add(nombre_clase)
-            for img in categoria.iterdir():
-                if img.suffix.lower() in EXTS:
-                    muestras.append({
-                        "ruta":   str(img),
-                        "clase":  nombre_clase,
-                        "grupo":  grupo.name,   # Alumnos o Famosos
-                    })
- 
+    clases = set()
+
+    for clase_dir in _iterar_clases(base):
+        clase = clase_dir.name
+        clases.add(clase)
+        for img in clase_dir.iterdir():
+            if img.is_file() and img.suffix.lower() in EXTS:
+                muestras.append(
+                    {
+                        "ruta": str(img),
+                        "clase": clase,
+                        "grupo": GRUPO_DEFAULT,
+                        "base_id": construir_base_id(img),
+                    }
+                )
+
     return muestras, sorted(clases)
- 
- 
-# ─── División train/val/test estratificada ───────────────────────────────────────
- 
-def dividir_estratificado(muestras, train_r, val_r, test_r, seed=SEED):
+
+
+def construir_base_id(ruta_img: Path) -> str:
     """
-    División estratificada: mantiene la proporción de cada clase en los tres splits.
-    Esto es crítico para clasificación multiclase — evita que una clase
-    quede subrepresentada en validación o test.
+    Obtiene el identificador base de la imagen para mantener juntas
+    las variantes aumentadas (_augXX) y la imagen original.
+    """
+    stem = ruta_img.stem
+    stem_base = re.sub(r"_aug\d+$", "", stem, flags=re.IGNORECASE)
+    return stem_base
+
+
+def dividir_estratificado_por_base(muestras, train_r, val_r, test_r, seed=SEED):
+    """
+    Split estratificado por clase, agrupando por base_id para evitar fuga de datos.
+    Todas las variantes de una misma imagen base van al mismo split.
     """
     random.seed(seed)
- 
-    # Agrupar por clase
-    por_clase = {}
+    por_clase = defaultdict(list)
     for m in muestras:
-        por_clase.setdefault(m["clase"], []).append(m)
- 
+        por_clase[m["clase"]].append(m)
+
     train, val, test = [], [], []
- 
-    for clase, items in por_clase.items():
-        random.shuffle(items)
-        n     = len(items)
-        n_tr  = int(n * train_r)
-        n_val = int(n * val_r)
-        # El resto va a test
- 
-        train.extend(items[:n_tr])
-        val.extend(items[n_tr:n_tr + n_val])
-        test.extend(items[n_tr + n_val:])
- 
-    # Mezclar dentro de cada split
+    for _, items_clase in por_clase.items():
+        grupos = defaultdict(list)
+        for item in items_clase:
+            grupos[item["base_id"]].append(item)
+
+        grupos_lista = list(grupos.values())
+        random.shuffle(grupos_lista)
+
+        n_grupos = len(grupos_lista)
+        n_tr = int(n_grupos * train_r)
+        n_val = int(n_grupos * val_r)
+
+        grupos_train = grupos_lista[:n_tr]
+        grupos_val = grupos_lista[n_tr:n_tr + n_val]
+        grupos_test = grupos_lista[n_tr + n_val:]
+
+        for g in grupos_train:
+            train.extend(g)
+        for g in grupos_val:
+            val.extend(g)
+        for g in grupos_test:
+            test.extend(g)
+
     random.shuffle(train)
     random.shuffle(val)
     random.shuffle(test)
- 
     return train, val, test
- 
- 
-# ─── Guardar CSVs y configuración ────────────────────────────────────────────────
- 
+
+
 def guardar_csv(muestras, ruta, mapeo_clases):
     with open(ruta, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -109,129 +132,84 @@ def guardar_csv(muestras, ruta, mapeo_clases):
                 m["ruta"],
                 m["clase"],
                 mapeo_clases[m["clase"]],
-                m["grupo"],
+                m.get("grupo", GRUPO_DEFAULT),
             ])
- 
- 
+
+
 def verificar_imagen(ruta: str) -> bool:
     img = cv2.imread(ruta)
     return img is not None and img.shape[:2] == (160, 160)
- 
- 
-# ─── Reporte ─────────────────────────────────────────────────────────────────────
- 
+
+
 def imprimir_reporte(train, val, test, clases):
     total = len(train) + len(val) + len(test)
     print(f"\n{'='*62}")
-    print(f"  SPLITS GENERADOS")
-    print(f"{'─'*62}")
-    print(f"  {'Split':<10} {'Imágenes':>10}  {'%':>6}")
-    print(f"  {'─'*30}")
+    print("  SPLITS GENERADOS")
+    print(f"{'-'*62}")
+    print(f"  {'Split':<10} {'Imagenes':>10}  {'%':>6}")
+    print(f"  {'-'*30}")
     for nombre, split in [("Train", train), ("Val", val), ("Test", test)]:
-        pct = len(split) / total * 100
+        pct = (len(split) / total * 100) if total else 0
         print(f"  {nombre:<10} {len(split):>10,}  {pct:>5.1f}%")
-    print(f"  {'─'*30}")
+    print(f"  {'-'*30}")
     print(f"  {'TOTAL':<10} {total:>10,}  100.0%")
     print(f"\n  Clases ({len(clases)}):")
     conteos = Counter(m["clase"] for m in train + val + test)
     for clase in clases:
         n = conteos[clase]
-        barra = "█" * min(n // 10, 30)
-        print(f"    {clase:20s}  {n:5d}  {barra}")
+        barra = "#" * min(n // 10, 30)
+        print(f"    {clase:24s} {n:5d}  {barra}")
     print(f"{'='*62}\n")
- 
- 
-# ─── Entry point ─────────────────────────────────────────────────────────────────
- 
+
+
 def preparar(train_r=0.70, val_r=0.15, test_r=0.15):
     assert abs(train_r + val_r + test_r - 1.0) < 1e-6, "Los ratios deben sumar 1.0"
- 
+
     if not BASE_DIR.exists():
-        print(f"\n  ERROR: No se encontró {BASE_DIR}")
-        print("  Ejecuta primero: python scripts/preprocesar.py")
-        print("                   python scripts/aumentar.py\n")
+        print(f"\n  ERROR: No se encontro {BASE_DIR}")
+        print("  Ejecuta primero Fase 2 y Fase 3.\n")
         return
- 
+
     SPLIT_DIR.mkdir(parents=True, exist_ok=True)
- 
-    print(f"\n  Recolectando imágenes de {BASE_DIR}...")
-    muestras, clases = recolectar_muestras(BASE_DIR)
-    print(f"  Total: {len(muestras):,} imágenes  |  {len(clases)} clases")
- 
-    # Mapeo clase → índice (para PyTorch/Keras)
-    mapeo_clases  = {c: i for i, c in enumerate(clases)}
+
+    print(f"\n  Recolectando imagenes de {BASE_DIR}...")
+    try:
+        muestras, clases = recolectar_muestras(BASE_DIR)
+    except ValueError as ex:
+        print(f"\n  ERROR: {ex}\n")
+        return
+    print(f"  Total: {len(muestras):,} imagenes | {len(clases)} clases")
+
+    mapeo_clases = {c: i for i, c in enumerate(clases)}
     mapeo_inverso = {i: c for c, i in mapeo_clases.items()}
- 
-    print(f"\n  Dividiendo dataset (train={train_r:.0%} / val={val_r:.0%} / test={test_r:.0%})...")
-    train, val, test = dividir_estratificado(muestras, train_r, val_r, test_r)
- 
-    # Guardar CSVs
+
+    print(f"\n  Dividiendo dataset por imagen base (train={train_r:.0%} / val={val_r:.0%} / test={test_r:.0%})...")
+    train, val, test = dividir_estratificado_por_base(muestras, train_r, val_r, test_r)
+
     guardar_csv(train, SPLIT_DIR / "train.csv", mapeo_clases)
-    guardar_csv(val,   SPLIT_DIR / "val.csv",   mapeo_clases)
-    guardar_csv(test,  SPLIT_DIR / "test.csv",  mapeo_clases)
-    print(f"  ✓ train.csv, val.csv, test.csv  →  {SPLIT_DIR}")
- 
-    # Guardar configuración de clases
+    guardar_csv(val, SPLIT_DIR / "val.csv", mapeo_clases)
+    guardar_csv(test, SPLIT_DIR / "test.csv", mapeo_clases)
+    print(f"  ok train.csv, val.csv, test.csv -> {SPLIT_DIR}")
+
     config = {
-        "n_clases":       len(clases),
-        "clases":         mapeo_inverso,
-        "clases_nombre":  clases,
-        "resolucion":     "160x160",
+        "n_clases": len(clases),
+        "clases": mapeo_inverso,
+        "clases_nombre": clases,
+        "resolucion": "160x160",
         "total_imagenes": len(muestras),
-        "splits": {
-            "train": len(train),
-            "val":   len(val),
-            "test":  len(test),
-        }
+        "splits": {"train": len(train), "val": len(val), "test": len(test)},
     }
     with open(SPLIT_DIR / "clases.json", "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
-    print(f"  ✓ clases.json  →  {SPLIT_DIR / 'clases.json'}")
- 
+    print(f"  ok clases.json -> {SPLIT_DIR / 'clases.json'}")
+
     imprimir_reporte(train, val, test, clases)
- 
-    # ── Snippet de uso para PyTorch ──────────────────────────────────────────
-    print("  ─── Cómo cargar en PyTorch ───────────────────────────────────")
-    print("""
-  import pandas as pd
-  from torch.utils.data import Dataset, DataLoader
-  from torchvision import transforms
-  from PIL import Image
- 
-  class FaceDataset(Dataset):
-      def __init__(self, csv_path, transform=None):
-          self.df        = pd.read_csv(csv_path)
-          self.transform = transform
- 
-      def __len__(self):
-          return len(self.df)
- 
-      def __getitem__(self, idx):
-          row   = self.df.iloc[idx]
-          img   = Image.open(row["ruta"]).convert("RGB")
-          label = int(row["clase_idx"])
-          if self.transform:
-              img = self.transform(img)
-          return img, label
- 
-  transform = transforms.Compose([
-      transforms.Resize((160, 160)),
-      transforms.ToTensor(),
-      transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
-  ])
- 
-  train_loader = DataLoader(
-      FaceDataset("splits/train.csv", transform=transform),
-      batch_size=32, shuffle=True
-  )
-    """)
-    print("  ──────────────────────────────────────────────────────────────\n")
- 
- 
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--train", type=float, default=0.70)
-    parser.add_argument("--val",   type=float, default=0.15)
-    parser.add_argument("--test",  type=float, default=0.15)
+    parser.add_argument("--val", type=float, default=0.15)
+    parser.add_argument("--test", type=float, default=0.15)
     args = parser.parse_args()
     preparar(train_r=args.train, val_r=args.val, test_r=args.test)

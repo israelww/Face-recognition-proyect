@@ -1,4 +1,4 @@
-﻿# pip install icrawler imagehash Pillow
+# pip install icrawler imagehash Pillow
 
 import os
 import hashlib
@@ -7,33 +7,33 @@ from pathlib import Path
 from icrawler.builtin import BingImageCrawler, GoogleImageCrawler, BaiduImageCrawler
 from icrawler.builtin.google import GoogleParser
 
-# ── Silenciar logs internos de icrawler ──────────────────────────────
+#  Silenciar logs internos de icrawler 
 logging.getLogger("icrawler").setLevel(logging.ERROR)
 
 
-# ────────────────────────────────────────────────────────────────────
-#  CONFIGURACIÓN
-# ────────────────────────────────────────────────────────────────────
-CELEBRITY_NAME = "Charlie Kirk"                         # Cambia aquí
-N_IMAGES       = 50                                     # Total de imágenes deseadas
+# 
+#  CONFIGURACION
+# 
+CELEBRITY_NAME = "Charlie Kirk"                         # Cambia aqui
+N_IMAGES       = 50                                     # Total de imagenes deseadas
 PROJECT_DIR    = Path(__file__).resolve().parents[1]
-OUTPUT_PATH    = PROJECT_DIR / "Dataset" / "Villanos"   # Carpeta raíz     
+OUTPUT_PATH    = PROJECT_DIR / "Dataset" / "Villanos"   # Carpeta raiz     
 ENABLE_GOOGLE  = False                                  
-# ────────────────────────────────────────────────────────────────────
+# 
 
 
 class SafeGoogleParser(GoogleParser):
-    """Evita crash cuando Google no devuelve URLs y parse() retornaría None."""
+    """Evita crash cuando Google no devuelve URLs y parse() retornaria None."""
 
     def parse(self, response):
         try:
             return super().parse(response) or []
         except Exception as e:
-            logging.getLogger(__name__).warning("Google parser falló y se omitirá la página: %s", e)
+            logging.getLogger(__name__).warning("Google parser fallo y se omitira la pagina: %s", e)
             return []
 
 
-# Fuentes con sus keywords y cuántas imágenes aporta cada una
+# Fuentes con sus keywords y cuantas imagenes aporta cada una
 SOURCES = [
     {
         "crawler_cls": BingImageCrawler,
@@ -56,7 +56,7 @@ if ENABLE_GOOGLE:
             "crawler_cls": GoogleImageCrawler,
             "keyword":     f"{CELEBRITY_NAME} face portrait",
             "max_num":     50,
-            "filters":     {"type": "face"},   # Google tiene filtro específico de cara
+            "filters":     {"type": "face"},   # Google tiene filtro especifico de cara
         },
     )
 
@@ -68,7 +68,7 @@ def get_file_hash(filepath: Path) -> str:
 
 
 def remove_duplicates(folder: Path) -> int:
-    """Elimina imágenes duplicadas comparando hashes MD5. Retorna cuántas eliminó."""
+    """Elimina imagenes duplicadas comparando hashes MD5. Retorna cuantas elimino."""
     seen_hashes = {}
     removed = 0
     for img_path in sorted(folder.iterdir()):
@@ -92,25 +92,25 @@ def download_celebrity(name: str, n_images: int, base_path: Path | str):
     save_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'='*55}")
-    print(f"  🎯 Objetivo : {name}")
-    print(f"  📁 Destino  : {save_dir}")
-    print(f"  🖼️  Total    : {n_images} imágenes")
+    print(f"   Objetivo : {name}")
+    print(f"   Destino  : {save_dir}")
+    print(f"    Total    : {n_images} imagenes")
     print(f"{'='*55}\n")
 
     active_sources = [dict(source) for source in SOURCES]
     if not ENABLE_GOOGLE:
-        print("  ℹ️ Google está desactivado temporalmente para evitar el error de parser.\n")
+        print("  i Google esta desactivado temporalmente para evitar el error de parser.\n")
 
-    # ── Ajustar proporciones si n_images difiere del total por defecto ──
+    #  Ajustar proporciones si n_images difiere del total por defecto 
     total_default = sum(s["max_num"] for s in active_sources)
     for source in active_sources:
         source["max_num"] = max(1, round(source["max_num"] * n_images / total_default))
 
-    # ── Descargar desde cada fuente ──────────────────────────────────
+    #  Descargar desde cada fuente 
     for i, source in enumerate(active_sources):
         crawler_cls = source["crawler_cls"]
         source_name = crawler_cls.__name__.replace("ImageCrawler", "")
-        print(f"  [{i+1}/{len(active_sources)}] 🔍 {source_name} → {source['max_num']} imágenes ...")
+        print(f"  [{i+1}/{len(active_sources)}]  {source_name}  {source['max_num']} imagenes ...")
 
         try:
             crawler_kwargs = dict(
@@ -124,27 +124,27 @@ def download_celebrity(name: str, n_images: int, base_path: Path | str):
                 keyword=source["keyword"],
                 filters=source["filters"] if source["filters"] else None,
                 max_num=source["max_num"],
-                file_idx_offset="auto",   # Numeración consecutiva sin solapamientos
+                file_idx_offset="auto",   # Numeracion consecutiva sin solapamientos
             )
-            print(f"       ✅ {source_name} completado")
+            print(f"        {source_name} completado")
         except Exception as e:
-            print(f"       ⚠️  {source_name} falló: {e}")
+            print(f"         {source_name} fallo: {e}")
 
-    # ── Eliminar duplicados ──────────────────────────────────────────
-    print("\n  🔎 Eliminando duplicados por hash MD5...")
+    #  Eliminar duplicados 
+    print("\n   Eliminando duplicados por hash MD5...")
     removed = remove_duplicates(save_dir)
 
-    # ── Reporte final ────────────────────────────────────────────────
+    #  Reporte final 
     final_count = len(list(save_dir.glob("*.*")))
-    print(f"\n{'─'*55}")
-    print(f"  📊 Imágenes descargadas : {final_count + removed}")
-    print(f"  🗑️  Duplicados eliminados: {removed}")
-    print(f"  ✅ Imágenes finales      : {final_count}")
-    print(f"  📁 Guardadas en          : {save_dir.resolve()}")
-    print(f"{'─'*55}\n")
+    print(f"\n{'-'*55}")
+    print(f"   Imagenes descargadas : {final_count + removed}")
+    print(f"    Duplicados eliminados: {removed}")
+    print(f"   Imagenes finales      : {final_count}")
+    print(f"   Guardadas en          : {save_dir.resolve()}")
+    print(f"{'-'*55}\n")
 
 
-# ── EJECUCIÓN ────────────────────────────────────────────────────────
+#  EJECUCION 
 if __name__ == "__main__":
     download_celebrity(
         name=CELEBRITY_NAME,
